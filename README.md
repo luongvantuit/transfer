@@ -178,7 +178,8 @@ Edit `main.go` to adjust:
 | **Total Test Items** | 200,000 | ✅ Complete |
 | **Numbers Accuracy** | 100.00% | ✅ Perfect |
 | **Strings Accuracy** | 100.00% | ✅ Perfect |
-| **Encryption Speed** | 2.7M items/sec | ⚡ Fast |
+| **Numbers Speed** | 1.97M items/sec | ⚡ Fast |
+| **Strings Speed** | 2.69M items/sec | ⚡ Fast |
 | **No Duplicates** | 0.00% | 🔒 Secure |
 | **Total Time** | 87.89ms | ⚡ Efficient |
 
@@ -188,7 +189,7 @@ The Substitution Cipher implementation demonstrates **exceptional performance** 
 
 **Key Achievements:**
 - 🎯 **Perfect Accuracy**: 100% success rate
-- ⚡ **High Performance**: 2.7M operations/second  
+- ⚡ **High Performance**: 2.69M operations/second (strings), 1.97M operations/second (numbers)  
 - 🔒 **Zero Collisions**: No duplicate outputs
 - 🏗️ **Clean Architecture**: Modular, maintainable code
 - 📊 **Comprehensive Testing**: 200K test items validated
