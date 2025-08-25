@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/aes"
+	crand "crypto/rand"
 	"fmt"
-	"math/rand"
+	mrand "math/rand"
 	"os"
 	"strings"
 	"time"
@@ -12,13 +14,34 @@ import (
 
 // Old encryption functions removed - now using SubstitutionCipher from cipher package
 
+// Helper function for min
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Generate valid AES key for FPE
+func mustAESKey() []byte {
+	key := make([]byte, 32) // AES-256
+	if _, err := crand.Read(key); err != nil {
+		panic(err)
+	}
+	// ensure it's a valid AES key
+	if _, err := aes.NewCipher(key); err != nil {
+		panic(err)
+	}
+	return key
+}
+
 func generateUniqueNumbers(count int) []string {
 	used := make(map[string]bool)
 	numbers := make([]string, 0, count)
 
 	for len(numbers) < count {
 		// Generate numbers from 1-999999
-		num := rand.Intn(999999) + 1
+		num := mrand.Intn(999999) + 1
 		numStr := fmt.Sprintf("%d", num)
 
 		if !used[numStr] {
@@ -38,11 +61,11 @@ func generateUniqueStrings(count int) []string {
 
 	for len(strings) < count {
 		// Generate string with length from 1-20 characters
-		length := rand.Intn(20) + 1
+		length := mrand.Intn(20) + 1
 		result := make([]byte, length)
 
 		for i := range result {
-			result[i] = charset[rand.Intn(len(charset))]
+			result[i] = charset[mrand.Intn(len(charset))]
 		}
 
 		str := string(result)
@@ -75,7 +98,7 @@ func createASCIIChart(title string, data map[string]float64, width int) string {
 	return result
 }
 
-func printPerformanceSummary(numbersTime, stringsTime time.Duration, testCount int) {
+func printPerformanceSummary(numbersTime, stringsTime, fpeTime time.Duration, testCount int) {
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Println("                    PERFORMANCE SUMMARY")
 	fmt.Println(strings.Repeat("=", 60))
@@ -98,11 +121,36 @@ func printPerformanceSummary(numbersTime, stringsTime time.Duration, testCount i
 	fmt.Printf("  Rate: %.0f items/sec (%.0f items/ms)\n", stringsPerSec, float64(stringsPerMs))
 	fmt.Printf("  Average: %.3f μs per item\n", float64(stringsTime.Microseconds())/1000000)
 
+	// FPE performance
+	fpePerSec := float64(testCount) / fpeTime.Seconds()
+	fpePerMs := float64(testCount) / float64(fpeTime.Milliseconds())
+
+	fmt.Printf("\nFPE Cipher Processing:\n")
+	fmt.Printf("  Total time: %v\n", fpeTime)
+	fmt.Printf("  Rate: %.0f items/sec (%.0f items/ms)\n", fpePerSec, float64(fpePerMs))
+	fmt.Printf("  Average: %.3f μs per item\n", float64(fpeTime.Microseconds())/1000000)
+
 	// Performance comparison
-	if numbersTime < stringsTime {
-		fmt.Printf("\nNumbers are %.1fx faster than strings\n", float64(stringsTime)/float64(numbersTime))
-	} else {
-		fmt.Printf("\nStrings are %.1fx faster than numbers\n", float64(numbersTime)/float64(stringsTime))
+	fastest := "Numbers"
+	fastestTime := numbersTime
+	if stringsTime < fastestTime {
+		fastest = "Strings"
+		fastestTime = stringsTime
+	}
+	if fpeTime < fastestTime {
+		fastest = "FPE Cipher"
+		fastestTime = fpeTime
+	}
+
+	fmt.Printf("\n%s is the fastest\n", fastest)
+	if fastestTime != numbersTime {
+		fmt.Printf("Numbers are %.1fx slower than %s\n", float64(numbersTime)/float64(fastestTime), fastest)
+	}
+	if fastestTime != stringsTime {
+		fmt.Printf("Strings are %.1fx slower than %s\n", float64(stringsTime)/float64(fastestTime), fastest)
+	}
+	if fastestTime != fpeTime {
+		fmt.Printf("FPE Cipher is %.1fx slower than %s\n", float64(fpeTime)/float64(fastestTime), fastest)
 	}
 }
 
@@ -115,6 +163,14 @@ func main() {
 
 	// Initialize SubstitutionCipher
 	subCipher := cipher.NewSubstitutionCipher(key)
+
+	// Initialize FPE Cipher (FF1)
+	fpeKey := mustAESKey() // Generate valid AES-256 key
+	fpeCipher, err := cipher.NewFPECipher(fpeKey)
+	if err != nil {
+		fmt.Printf("Error creating FPE cipher: %v\n", err)
+		return
+	}
 
 	// Basic test
 	plain := "69619"
@@ -136,6 +192,24 @@ func main() {
 	fmt.Println("number plain:   ", numberPlain)
 	fmt.Println("number encrypted:", numberEncrypted)
 	fmt.Println("number decoded: ", numberDecrypted)
+
+	// Test FPE Cipher
+	fpePlain := "12345" // Simple number for FF1 testing
+	fpeEncrypted, err := fpeCipher.EncryptPreserving(fpePlain)
+	if err != nil {
+		fmt.Printf("Error encrypting with FPE: %v\n", err)
+		return
+	}
+	fpeDecrypted, err := fpeCipher.DecryptPreserving(fpeEncrypted)
+	if err != nil {
+		fmt.Printf("Error decrypting with FPE: %v\n", err)
+		return
+	}
+
+	fmt.Println("\n=== FPE CIPHER TEST ===")
+	fmt.Println("FPE plain:     ", fpePlain)
+	fmt.Println("FPE encrypted: ", fpeEncrypted)
+	fmt.Println("FPE decoded:   ", fpeDecrypted)
 	fmt.Println()
 
 	// Benchmark with unique random numbers
@@ -248,6 +322,49 @@ func main() {
 	fmt.Printf("Input-Output collisions: %d (%.2f%%)\n",
 		inputOutputCollision, float64(inputOutputCollision)/float64(testCount)*100)
 
+	// Benchmark FPE Cipher
+	fmt.Println("\n=== FPE CIPHER BENCHMARK ===")
+	fmt.Printf("Testing FPE Cipher with %d mixed strings...\n", testCount)
+
+	start = time.Now()
+	fpeEncryptedStrings := make([]string, testCount)
+	fpeDecryptedStrings := make([]string, testCount)
+	correctFPE := 0
+
+	for i := 0; i < testCount; i++ {
+		// Create simple numbers for FPE testing (FF1 works best with digits)
+		fpeTestString := fmt.Sprintf("%d", 100000+i) // Generate numbers 100000-199999
+
+		fpeEncryptedStrings[i], err = fpeCipher.EncryptPreserving(fpeTestString)
+		if err != nil {
+			fmt.Printf("Error encrypting with FPE: %v\n", err)
+			return
+		}
+
+		fpeDecryptedStrings[i], err = fpeCipher.DecryptPreserving(fpeEncryptedStrings[i])
+		if err != nil {
+			fmt.Printf("Error decrypting with FPE: %v\n", err)
+			return
+		}
+
+		if fpeTestString == fpeDecryptedStrings[i] {
+			correctFPE++
+		}
+
+		// Progress report every batch
+		if (i+1)%batchSize == 0 {
+			progress := float64(i+1) / float64(testCount) * 100
+			elapsed := time.Since(start)
+			rate := float64(i+1) / elapsed.Seconds()
+			fmt.Printf("FPE Progress: %.1f%% (%d/%d) - Rate: %.0f items/sec - Elapsed: %v\n",
+				progress, i+1, testCount, rate, elapsed)
+		}
+	}
+
+	fpeTime := time.Since(start)
+	fmt.Printf("FPE Cipher completed in %v\n", fpeTime)
+	fmt.Printf("FPE Accuracy: %d/%d (%.2f%%)\n", correctFPE, testCount, float64(correctFPE)/float64(testCount)*100)
+
 	// Write test data to test.txt
 	testFile, err := os.Create("test.txt")
 	if err != nil {
@@ -287,6 +404,11 @@ func main() {
 	fmt.Fprintf(file, "Correct decrypts: %d/%d (%.2f%%)\n", correctStrings, testCount, float64(correctStrings)/float64(testCount)*100)
 	fmt.Fprintf(file, "Average time per string: %v\n\n", stringsTime/time.Duration(testCount))
 
+	fmt.Fprintf(file, "=== FPE CIPHER TEST (%d mixed strings) ===\n", testCount)
+	fmt.Fprintf(file, "Time taken: %v\n", fpeTime)
+	fmt.Fprintf(file, "Correct decrypts: %d/%d (%.2f%%)\n", correctFPE, testCount, float64(correctFPE)/float64(testCount)*100)
+	fmt.Fprintf(file, "Average time per string: %v\n\n", fpeTime/time.Duration(testCount))
+
 	fmt.Fprintf(file, "=== SAMPLE RESULTS ===\n")
 	fmt.Fprintf(file, "First %d numbers:\n", sampleCount)
 	for i := 0; i < sampleCount; i++ {
@@ -311,10 +433,32 @@ func main() {
 	fmt.Fprintf(file, "  Rate: %.0f items/sec\n", float64(testCount)/stringsTime.Seconds())
 	fmt.Fprintf(file, "  Average: %.3f μs per item\n", float64(stringsTime.Microseconds())/float64(testCount))
 
-	if numbersTime < stringsTime {
-		fmt.Fprintf(file, "\nNumbers are %.1fx faster than strings\n", float64(stringsTime)/float64(numbersTime))
-	} else {
-		fmt.Fprintf(file, "\nStrings are %.1fx faster than numbers\n", float64(numbersTime)/float64(stringsTime))
+	fmt.Fprintf(file, "\nFPE Cipher Processing:\n")
+	fmt.Fprintf(file, "  Total time: %v\n", fpeTime)
+	fmt.Fprintf(file, "  Rate: %.0f items/sec\n", float64(testCount)/fpeTime.Seconds())
+	fmt.Fprintf(file, "  Average: %.3f μs per item\n", float64(fpeTime.Microseconds())/float64(testCount))
+
+	// Performance comparison
+	fastest := "Numbers"
+	fastestTime := numbersTime
+	if stringsTime < fastestTime {
+		fastest = "Strings"
+		fastestTime = stringsTime
+	}
+	if fpeTime < fastestTime {
+		fastest = "FPE Cipher"
+		fastestTime = fpeTime
+	}
+
+	fmt.Fprintf(file, "\n%s is the fastest\n", fastest)
+	if fastestTime != numbersTime {
+		fmt.Fprintf(file, "Numbers are %.1fx slower than %s\n", float64(numbersTime)/float64(fastestTime), fastest)
+	}
+	if fastestTime != stringsTime {
+		fmt.Fprintf(file, "Strings are %.1fx slower than %s\n", float64(stringsTime)/float64(fastestTime), fastest)
+	}
+	if fastestTime != fpeTime {
+		fmt.Fprintf(file, "FPE Cipher is %.1fx slower than %s\n", float64(fpeTime)/float64(fastestTime), fastest)
 	}
 
 	fmt.Fprintf(file, "\n=== DUPLICATE ANALYSIS ===\n")
@@ -330,20 +474,22 @@ func main() {
 	fmt.Fprintf(file, "Strings test: %d/%d correct (%.2f%%)\n", correctStrings, testCount, float64(correctStrings)/float64(testCount)*100)
 
 	// Print performance summary
-	printPerformanceSummary(numbersTime, stringsTime, testCount)
+	printPerformanceSummary(numbersTime, stringsTime, fpeTime, testCount)
 
 	// Create and display ASCII charts
 	numbersData := map[string]float64{
-		"Numbers": float64(numbersTime.Milliseconds()),
-		"Strings": float64(stringsTime.Milliseconds()),
+		"Numbers":    float64(numbersTime.Milliseconds()),
+		"Strings":    float64(stringsTime.Milliseconds()),
+		"FPE Cipher": float64(fpeTime.Milliseconds()),
 	}
 
 	fmt.Println(createASCIIChart("PERFORMANCE COMPARISON (ms)", numbersData, 40))
 
 	// Accuracy chart
 	accuracyData := map[string]float64{
-		"Numbers": float64(correctNumbers) / float64(testCount) * 100,
-		"Strings": float64(correctStrings) / float64(testCount) * 100,
+		"Numbers":    float64(correctNumbers) / float64(testCount) * 100,
+		"Strings":    float64(correctStrings) / float64(testCount) * 100,
+		"FPE Cipher": float64(correctFPE) / float64(testCount) * 100,
 	}
 
 	fmt.Println(createASCIIChart("ACCURACY COMPARISON (%)", accuracyData, 40))
@@ -351,6 +497,6 @@ func main() {
 	fmt.Println("Benchmark completed!")
 	fmt.Printf("Test data written to test.txt (%d lines total)\n", testCount*2)
 	fmt.Println("Results written to out.txt")
-	fmt.Printf("Numbers accuracy: %.2f%%, Strings accuracy: %.2f%%\n",
-		float64(correctNumbers)/float64(testCount)*100, float64(correctStrings)/float64(testCount)*100)
+	fmt.Printf("Numbers accuracy: %.2f%%, Strings accuracy: %.2f%%, FPE accuracy: %.2f%%\n",
+		float64(correctNumbers)/float64(testCount)*100, float64(correctStrings)/float64(testCount)*100, float64(correctFPE)/float64(testCount)*100)
 }

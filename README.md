@@ -9,11 +9,14 @@ This project implements and benchmarks a **Substitution Cipher** encryption syst
 ### ✅ **Perfect Accuracy**
 - **Numbers**: 100,000/100,000 correct (100.00%)
 - **Strings**: 100,000/100,000 correct (100.00%)
+- **FPE Cipher**: 100,000/100,000 correct (100.00%)
 
 ### ⚡ **Performance Metrics**
-- **Numbers Processing**: 50.71ms (1,971,999 items/sec)
-- **Strings Processing**: 37.18ms (2,689,380 items/sec)
+- **Numbers Processing**: 56.87ms (1,758,494 items/sec)
+- **Strings Processing**: 40.87ms (2,446,822 items/sec)
+- **FPE Cipher**: 458.63ms (218,040 items/sec)
 - **Strings are 1.4x faster than numbers**
+- **FPE Cipher is 11.2x slower than strings**
 
 ### 🔒 **Security Analysis**
 - **Encrypted Numbers**: 100,000 unique, 0 duplicates (0.00%)
@@ -29,20 +32,21 @@ Strings:  ███████████████████████�
 ```
 
 ### **Speed Metrics**
-| Metric | Numbers | Strings | Ratio |
-|--------|---------|---------|-------|
-| **Total Time** | 50.71ms | 37.18ms | 1.36x |
-| **Items/sec** | 1,971,999 | 2,689,380 | 1.36x |
-| **Items/ms** | 2,000 | 2,703 | 1.35x |
-| **μs per item** | 0.051 | 0.037 | 1.38x |
+| Metric | Numbers | Strings | FPE Cipher | Ratio |
+|--------|---------|---------|------------|-------|
+| **Total Time** | 56.87ms | 40.87ms | 458.63ms | 11.2x |
+| **Items/sec** | 1,758,494 | 2,446,822 | 218,040 | 11.2x |
+| **Items/ms** | 1,786 | 2,500 | 218 | 11.5x |
+| **μs per item** | 0.057 | 0.041 | 0.459 | 11.2x |
 
 ## 🏗️ Architecture Overview
 
 ### **Core Components**
-1. **`SubstitutionCipher`** - Main encryption engine
-2. **`Cipher` Interface** - Defines encryption/decryption methods
-3. **SHA256 Seeding** - Ensures deterministic but secure randomness
-4. **Progress Tracking** - Real-time performance monitoring
+1. **`SubstitutionCipher`** - Main encryption engine (custom implementation)
+2. **`FPECipher`** - Format-Preserving Encryption using FF1 algorithm
+3. **`Cipher` Interface** - Defines encryption/decryption methods
+4. **SHA256 Seeding** - Ensures deterministic but secure randomness
+5. **Progress Tracking** - Real-time performance monitoring
 
 ### **Key Features**
 - **Deterministic Encryption**: Same input + key = same output
@@ -178,19 +182,22 @@ Edit `main.go` to adjust:
 | **Total Test Items** | 200,000 | ✅ Complete |
 | **Numbers Accuracy** | 100.00% | ✅ Perfect |
 | **Strings Accuracy** | 100.00% | ✅ Perfect |
-| **Numbers Speed** | 1.97M items/sec | ⚡ Fast |
-| **Strings Speed** | 2.69M items/sec | ⚡ Fast |
+| **FPE Accuracy** | 100.00% | ✅ Perfect |
+| **Numbers Speed** | 1.76M items/sec | ⚡ Fast |
+| **Strings Speed** | 2.45M items/sec | ⚡ Fast |
+| **FPE Speed** | 218K items/sec | ⚡ Secure |
 | **No Duplicates** | 0.00% | 🔒 Secure |
-| **Total Time** | 87.89ms | ⚡ Efficient |
+| **Total Time** | 556.37ms | ⚡ Comprehensive |
 
 ## 🎉 Conclusion
 
 The Substitution Cipher implementation demonstrates **exceptional performance** and **perfect accuracy** across all test scenarios. With zero duplicates, 100% decryption accuracy, and millions of operations per second, this system provides a robust foundation for secure data encryption.
 
 **Key Achievements:**
-- 🎯 **Perfect Accuracy**: 100% success rate
-- ⚡ **High Performance**: 2.69M operations/second (strings), 1.97M operations/second (numbers)  
+- 🎯 **Perfect Accuracy**: 100% success rate across all ciphers
+- ⚡ **High Performance**: 2.45M operations/second (strings), 1.76M operations/second (numbers)
 - 🔒 **Zero Collisions**: No duplicate outputs
+- 🏗️ **Dual Cipher System**: Substitution + FPE (FF1) comparison
 - 🏗️ **Clean Architecture**: Modular, maintainable code
 - 📊 **Comprehensive Testing**: 200K test items validated
 
